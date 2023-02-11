@@ -1,3 +1,8 @@
+## Overview
+use this commit message for every commit -> "<Name> - <Commit Description>"
+e.g $git commit -m "Budi - Initial Commit"
+
+
 ## Backend Folder (On Development)
 
 Uses Python 3.8 and Flask as Microservices
