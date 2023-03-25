@@ -1,37 +1,104 @@
-# import os
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# from PIL import ImageFile, Image
-# from numpy import expand_dims
-# from werkzeug.utils import secure_filename
-# from tensorflow.keras.applications.imagenet_utils import preprocess_input, decode_predictions
-# from tensorflow.keras.models import load_model
-# from tensorflow.keras.preprocessing import image
-# from tensorflow.keras.applications.resnet50 import ResNet50
-# ImageFile.LOAD_TRUNCATED_IMAGES = True
+import os
+from time import time
 
-# model = ResNet50(weights='imagenet')
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-# def getPrediction(img_bytes, model):
-#     # Loads the image and transforms it to (224, 224, 3) shape
-#     original_image = Image.open(img_bytes)
-#     original_image = original_image.convert('RGB')
-#     original_image = original_image.resize((224, 224), Image.NEAREST)
-    
-#     numpy_image = image.img_to_array(original_image)
-#     image_batch = expand_dims(numpy_image, axis=0)
+import numpy as np
+import SimpleITK as sitk
+import scipy.ndimage as ndimage
 
-#     processed_image = preprocess_input(image_batch, mode='caffe')
-#     preds = model.predict(processed_image)
-    
-#     return preds
+from Net import model
+
+current_dir = os.getcwd()
+weight_dir = "/Net/50-0.539-0.644.pth"
+state_dict_dir = os.path.join(current_dir, weight_dir)
+
+pred_dir = "/PredictResult"
+result_dir = os.path.join(current_dir, pred_dir)
+
+net = model.Net(training=False)
+net.load_state_dict(torch.load(state_dict_dir))
+net.eval()
+
+upper = 350
+lower = -upper
+down_scale = 0.5
+size = 48
+slice_thickness = 3
+
+def predict(filepath):
+    ct = sitk.ReadImage(filepath, sitk.sitkInt16)
+    ct_array = sitk.GetArrayFromImage(ct)
+
+    original_shape = ct_array.shape
+
+    ct_array = ndimage.zoom(ct_array, (ct.GetSpacing()[-1] / slice_thickness, down_scale, down_scale), order=3)
+
+    # slice and sample in the axial direction
+    flag  =  False
+    start_slice = 0
+    end_slice = start_slice + size - 1
+    ct_array_list = []
+
+    while end_slice <= ct_array.shape[0] - 1:
+        ct_array_list.append(ct_array[start_slice:end_slice + 1, :, :])
+
+        start_slice = end_slice + 1
+        end_slice = start_slice + size - 1
+
+    # When it is not divisible, take the last block in reverse
+    if end_slice is not ct_array.shape[0] - 1:
+        flag = True
+        count = ct_array.shape[0] - start_slice
+        ct_array_list.append(ct_array[-size:, :, :])
+
+    outputs_list = []
+    with torch.no_grad():
+        for ct_array in ct_array_list:
+
+            ct_tensor = torch.FloatTensor(ct_array)
+            ct_tensor = ct_tensor.unsqueeze(dim=0)
+            ct_tensor = ct_tensor.unsqueeze(dim=0)
+
+            outputs = net(ct_tensor)
+            outputs = outputs.squeeze()
+
+            outputs_list.append(outputs.cpu().detach().numpy())
+            del outputs
+
+    # Start splicing results after execution
+    pred_seg = np.concatenate(outputs_list[0:-1], axis=1)
+    if flag is False:
+        pred_seg = np.concatenate([pred_seg, outputs_list[-1]], axis=1)
+    else:
+        pred_seg = np.concatenate([pred_seg, outputs_list[-1][:, -count:, :, :]], axis=1)
+
+    pred_seg = torch.FloatTensor(pred_seg).unsqueeze(dim=0)
+    pred_seg = F.interpolate(pred_seg, original_shape, mode='trilinear').squeeze().detach().numpy()
+    pred_seg = np.argmax(pred_seg, axis=0)
+    pred_seg = np.round(pred_seg).astype(np.uint8)
+
+    pred_seg = torch.FloatTensor(pred_seg).unsqueeze(dim=0)
+    pred_seg = F.interpolate(pred_seg, original_shape, mode='trilinear').squeeze().detach().numpy()
+    pred_seg = np.argmax(pred_seg, axis=0)
+    pred_seg = np.round(pred_seg).astype(np.uint8)
+
+    print('size of pred: ', pred_seg.shape)
+
+    pred_seg = sitk.GetImageFromArray(pred_seg)
+
+    pred_seg.SetDirection(ct.GetDirection())
+    pred_seg.SetOrigin(ct.GetOrigin())
+    pred_seg.SetSpacing(ct.GetSpacing())
+
+    file_destination = os.path.join(result_dir, "result.nii.gz")
+
+    sitk.WriteImage(pred_seg, file_destination)
+    del pred_seg
+
+    return file_destination
 
 
-# def classifyImage(file):
-#     # Returns a probability scores matrix 
-#     preds = getPrediction(file, model)
-#     # Decode tha matrix to the following format (class_name, class_description, score) and pick the heighest score
-#     # We are going to use class_description since that describes what the model sees
-#     prediction = decode_predictions(preds, top=1)
-#     # prediction[0][0][1] is eqaul to the first batch, top prediction and class_description
-#     result = str(prediction[0][0][1])
-#     return result
+

@@ -1,10 +1,11 @@
 
 import os
 import traceback
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify, send_file, g
 from reverseProxy import proxyRequest
 from werkzeug.utils import secure_filename
 from logging.config import dictConfig
+from classifier import predict
 
 dictConfig(
     {
@@ -46,44 +47,47 @@ def index(path=''):
     else:
         return render_template("index.html")
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    app.logger.info('upload file request received with request : %s', request)
+@app.route('/predict', methods=['POST'])
+def predict():
+    app.logger.info('upload file request received')
+
     if 'file' not in request.files:
-        return 'No file uploaded', 400
+        app.logger.error('No File Uploaded')
+        return jsonify({'error': 'No file uploaded.'}), 400
 
     file = request.files['file']
 
     # Save the file to disk
     try:
-        filename = file.filename
+        filename = secure_filename(file.filename)
+        if not filename.endswith('.nii.gz'):
+            app.logger.error('Not a NIfTI file')
+            return jsonify({'error': 'Only NIfTI files are supported.'}), 400
+
         save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        g.savepath = save_path
+        
 
         file.save(save_path)
         app.logger.info('File Received')
-        return "File Uploaded Succesfully"
+
+        result_dir = predict(save_path)
+        g.resultdir = result_dir
+
+        return send_file(result_dir, mimetype='application/octet-stream', as_attachment=True, attachment_filename="result.nii.gz")
 
     except Exception as e:
         app.logger.error(traceback.format_exc())
-        return "Failed due to {}".format(e)
-        
+        return jsonify({'error': 'Failed due to {}'.format(e)}), 500
+    
+@app.after_request
+def file_cleanup():
 
-    # Call some other function that needs the file
-    # some_function(save_path)
+    save_path = getattr(g, 'savepath', None)
+    result_dir = getattr(g, 'resultdir', None)
 
-    # Delete the file after a delay
-    # os.remove(save_path)
-    # app.logger.info('File Removed')   
-
-
-# @app.route('/classify', methods=['POST'])
-# def classify():
-#     app.logger.info('request value %s', request)
-#     if (request.files['image']): 
-#         file = request.files['image']
-
-#         result = classifyImage(file)
-#         print('Model classification: ' + result)     
-#         # filename = secure_filename(file.filename)
-#         # file.save(os.path.join(UPLOAD_FOLDER, filename))   
-#         return result
+    try:
+        os.remove(save_path)
+        os.remove(result_dir)
+    except Exception as e:
+        app.logger.error('Error deleting: {}'.format(e))
