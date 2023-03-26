@@ -37,3 +37,9 @@ To Migrate to NextJs please follow these following link https://www.geeksforgeek
 
 Please add sources and references here  
 https://medium.com/sopra-steria-norge/build-a-simple-image-classification-app-using-react-keras-and-flask-7b9075e3b6f5  
+
+AI Model, preprocessing, postprocessing references (temporary):  
+https://github.com/assassint2017/abdominal-multi-organ-segmentation  
+
+Dataset  (need to create account first to see abdomen dataset):  
+https://www.synapse.org/#!Synapse:syn3193805/wiki/217752  
