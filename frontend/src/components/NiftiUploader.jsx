@@ -11,7 +11,7 @@ const NiftiUploader = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('/upload', {
+    fetch('/predict', {
       method: 'POST',
       body: formData,
     })
@@ -19,13 +19,21 @@ const NiftiUploader = () => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        return response.json();
+        return response.blob();
       })
       .then(data => {
-        console.log(data);
+        // Create a download link for the blob object
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(data);
+        downloadLink.download = 'result.nii.gz';
+
+        // Trigger the download link click
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
       })
       .catch(error => {
-        console.error('There was a problem with the file upload:', error);
+        console.error('There was a problem with the file processing:', error);
       });
   };
 

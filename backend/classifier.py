@@ -11,16 +11,27 @@ import scipy.ndimage as ndimage
 
 from Net import model
 
-current_dir = os.getcwd()
+import logging
+
+logging.basicConfig(level=logging.INFO)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
+
+current_dir = os.path.dirname(__file__)
 weight_dir = "/Net/50-0.539-0.644.pth"
-state_dict_dir = os.path.join(current_dir, weight_dir)
+state_dict_dir = os.path.abspath(current_dir + weight_dir)
 
 pred_dir = "/PredictResult"
-result_dir = os.path.join(current_dir, pred_dir)
+result_dir = os.path.abspath(current_dir + pred_dir)
 
+logging.info("Loading Model")
 net = model.Net(training=False)
 net.load_state_dict(torch.load(state_dict_dir))
 net.eval()
+logging.info("Model Finished Loading")
 
 upper = 350
 lower = -upper
@@ -28,7 +39,8 @@ down_scale = 0.5
 size = 48
 slice_thickness = 3
 
-def predict(filepath):
+def predict_nifti(filepath):
+    logging.info("predict_nifti. Start predicting nifti file in {}".format(filepath))
     ct = sitk.ReadImage(filepath, sitk.sitkInt16)
     ct_array = sitk.GetArrayFromImage(ct)
 
@@ -80,22 +92,16 @@ def predict(filepath):
     pred_seg = np.argmax(pred_seg, axis=0)
     pred_seg = np.round(pred_seg).astype(np.uint8)
 
-    pred_seg = torch.FloatTensor(pred_seg).unsqueeze(dim=0)
-    pred_seg = F.interpolate(pred_seg, original_shape, mode='trilinear').squeeze().detach().numpy()
-    pred_seg = np.argmax(pred_seg, axis=0)
-    pred_seg = np.round(pred_seg).astype(np.uint8)
-
-    print('size of pred: ', pred_seg.shape)
-
     pred_seg = sitk.GetImageFromArray(pred_seg)
 
     pred_seg.SetDirection(ct.GetDirection())
     pred_seg.SetOrigin(ct.GetOrigin())
     pred_seg.SetSpacing(ct.GetSpacing())
 
-    file_destination = os.path.join(result_dir, "result.nii.gz")
+    file_destination = os.path.abspath(os.path.join(result_dir, "result.nii.gz"))
 
     sitk.WriteImage(pred_seg, file_destination)
+    logging.info("predict_nifti. Predicted File Saved in {}".format(file_destination))
     del pred_seg
 
     return file_destination
