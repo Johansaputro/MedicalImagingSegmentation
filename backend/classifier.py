@@ -29,7 +29,7 @@ result_dir = os.path.abspath(current_dir + pred_dir)
 
 logging.info("Loading Model")
 net = model.Net(training=False)
-net.load_state_dict(torch.load(state_dict_dir))
+net.load_state_dict(torch.load(state_dict_dir, map_location=torch.device('cpu')))
 net.eval()
 logging.info("Model Finished Loading")
 

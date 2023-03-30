@@ -4,7 +4,8 @@ import time
 import threading
 import traceback
 from flask import Flask, render_template, request, jsonify, send_file, Blueprint, g
-from reverseProxy import proxyRequest
+from flask_cors import CORS
+# from reverseProxy import proxyRequest
 from werkzeug.utils import secure_filename
 from logging.config import dictConfig
 from classifier import predict_nifti
@@ -32,6 +33,7 @@ MODE = os.getenv('FLASK_ENV')
 DEV_SERVER_URL = 'http://localhost:3000/'   
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 UPLOAD_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/receivedFile'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -46,10 +48,10 @@ AI_blueprint = Blueprint('AI', __name__)
 @app.route('/')
 @app.route('/<path:path>')
 def index(path=''):
-    if MODE == 'development':
-        return proxyRequest(DEV_SERVER_URL, path)
-    else:
-        return render_template("index.html")
+    # if MODE == 'development':
+    #     return proxyRequest(DEV_SERVER_URL, path)
+    # else:
+    return jsonify({'error': '', 'message': 'Hello'}), 200
     
 @app.route('/isAlive')
 def isAlive():
@@ -99,6 +101,13 @@ def file_cleanup_thread(response):
     
     return response
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Access-Control-Allow-Origin')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 def file_cleanup(savepath, resultdir):
     with app.app_context():
         app.logger.info("file_cleanup. Remove file after prediction")
@@ -108,6 +117,6 @@ def file_cleanup(savepath, resultdir):
             os.remove(savepath)
             os.remove(resultdir)
         except Exception as e:
-            app.logger.error('Error deleting: {}'.format(e))
+            app.logger.warn('Trouble deleting: {}'.format(e))
 
 app.register_blueprint(AI_blueprint)
