@@ -13,4 +13,4 @@ COPY Net/ ./Net/
 COPY PredictResult/ ./PredictResult/
 COPY ReceivedFile/ ./ReceivedFile/
 
-CMD ["python", "app.py"]
+CMD flask run -h 0.0.0.0 -p 5000

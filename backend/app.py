@@ -120,3 +120,9 @@ def file_cleanup(savepath, resultdir):
             app.logger.warn('Trouble deleting: {}'.format(e))
 
 app.register_blueprint(AI_blueprint)
+
+if __name__ == "__main__":
+    if MODE == 'development':
+        app.run(debug=True)
+    else:
+        app.run(debug=False)
