@@ -4,9 +4,13 @@ WORKDIR /app
 
 # Copy the Flask app code and requirements
 COPY app.py .
-COPY classifier.py .
+COPY config.py .
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy controllers and services
+COPY controllers/ ./controllers/
+COPY services/ ./services/
 
 # Copy the PyTorch model weight file and directories
 COPY Net/ ./Net/
