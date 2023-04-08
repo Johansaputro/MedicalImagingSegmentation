@@ -14,14 +14,15 @@ Uses Python 3.8 and Flask as Microservices
 Database Used will be either SQL/MongoDB  
 
 Required Libraries:  
-1. pip install flask  
-2. pip install requests  
-3. pip install pillow  
-4. pip install tensorflow  
+1. pip install requirements.txt
 
 How to start backend only:  
 1. go to backend folder  
 2. Enter $python app.py    on the terminal  
+
+How to start backend only using Docker: 
+1. docker build -t medical-segmentation-app .  
+2. docker run  -d -p 5000:5000 medical-segmentation-app  
 
 -----------------  
 

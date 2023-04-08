@@ -1,14 +1,8 @@
-
 import os
-import time
-import threading
-import traceback
-from flask import Flask, render_template, request, jsonify, send_file, Blueprint, g
+from flask import Flask, jsonify
 from flask_cors import CORS
-# from reverseProxy import proxyRequest
-from werkzeug.utils import secure_filename
 from logging.config import dictConfig
-from classifier import predict_nifti
+from controllers.segmentation_controller import SegmentationController
 
 dictConfig(
     {
@@ -34,7 +28,7 @@ DEV_SERVER_URL = 'http://localhost:3000/'
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-UPLOAD_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/receivedFile'
+UPLOAD_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/ReceivedFile'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Ignore static folder in development mode.
@@ -43,7 +37,8 @@ if MODE == "development":
     UPLOAD_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/receivedFile'
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-AI_blueprint = Blueprint('AI', __name__)
+segmentation_controller = SegmentationController(app)
+app.register_blueprint(segmentation_controller.blueprint, url_prefix='/segmentation')
 
 @app.route('/')
 @app.route('/<path:path>')
@@ -57,50 +52,6 @@ def index(path=''):
 def isAlive():
     return jsonify({'error': '', 'message': 'Application is running'}), 200
 
-
-@AI_blueprint.route('/predict', methods=['POST'])
-def predict():
-    app.logger.info('predict. upload file request received')
-
-    if 'file' not in request.files:
-        app.logger.error('No File Uploaded')
-        return jsonify({'error': 'No file uploaded.'}), 400
-
-    file = request.files['file']
-
-    # Save the file to disk
-    try:
-        filename = secure_filename(file.filename)
-        if not filename.endswith('.nii.gz'):
-            app.logger.error('Not a NIfTI file')
-            return jsonify({'error': 'Only NIfTI files are supported.'}), 400
-
-        save_path = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        g.savepath = save_path
-        
-
-        file.save(save_path)
-        app.logger.info('File Received')
-
-        result_dir = predict_nifti(save_path)
-        g.resultdir = result_dir
-
-        return send_file(result_dir, mimetype='application/nifti', as_attachment=True, download_name="result.nii.gz")
-
-    except Exception as e:
-        app.logger.error(traceback.format_exc())
-        return jsonify({'error': 'Failed due to {}'.format(e)}), 500
-    
-@AI_blueprint.after_request
-def file_cleanup_thread(response):
-    app.logger.info("file_cleanup_thread. Start thread to remove files")
-    if response.status_code == 200:
-        savepath = getattr(g, 'savepath', None)
-        resultdir = getattr(g, 'resultdir', None)
-        threading.Thread(target=file_cleanup, args=(savepath, resultdir,)).start()
-    
-    return response
-
 @app.after_request
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -108,15 +59,8 @@ def add_cors_headers(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
-def file_cleanup(savepath, resultdir):
-    with app.app_context():
-        app.logger.info("file_cleanup. Remove file after prediction")
-        time.sleep(30)
-
-        try:
-            os.remove(savepath)
-            os.remove(resultdir)
-        except Exception as e:
-            app.logger.warn('Trouble deleting: {}'.format(e))
-
-app.register_blueprint(AI_blueprint)
+if __name__ == "__main__":
+    if MODE == 'development':
+        app.run(debug=True)
+    else:
+        app.run(debug=False)

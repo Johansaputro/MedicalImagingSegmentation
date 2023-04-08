@@ -11,7 +11,7 @@ const NiftiUploader = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('http://localhost:5000/predict', {
+    fetch('http://localhost:5000/segmentation/predict', {
       headers: {
         'Access-Control-Allow-Origin': '*'
       },
