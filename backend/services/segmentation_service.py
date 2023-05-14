@@ -12,7 +12,7 @@ import cloudinary.uploader
 
 import logging
 
-from config import NETWORK, RESULT_DIR, CDN_DIR, ALPHA, COLORMAP
+from config import NETWORK, NETWORK_MRCNN, RESULT_DIR, CDN_DIR, ALPHA, COLORMAP
 from time import time
 
 class SegmentationService:
@@ -181,5 +181,8 @@ class SegmentationService:
         except Exception as e:
             self.logger.error("Error during prediction process")
             raise e
+        
+    def predict_mrcnn(self, filepath, filename):
+        return
 
     

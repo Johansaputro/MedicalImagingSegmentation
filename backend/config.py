@@ -4,8 +4,10 @@ import torch
 import cloudinary
 import numpy as np
 import cv2
-from dotenv import load_dotenv  
+import mrcnn.model as modellib
 from Net import model
+from mrcnn.config_alt import Config
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -30,22 +32,6 @@ logger.info("Model Finished Loading")
 
 ALPHA = 0.5
 
-# COLORMAP = np.zeros((256, 1, 3), dtype=np.uint8)
-# COLORMAP[:, :] = [0,0,0]
-# COLORMAP[1, :] = [255, 0, 0]
-# COLORMAP[2, :] = [255, 255, 0]
-# COLORMAP[3, :] = [0, 255, 0]
-# COLORMAP[4, :] = [0, 255, 255]
-# COLORMAP[5, :] = [0, 0, 255]
-# COLORMAP[6, :] = [255, 0, 255]
-# COLORMAP[7, :] = [128, 0, 0]
-# COLORMAP[8, :] = [128, 128, 0]
-# COLORMAP[9, :] = [0, 128, 0]
-# COLORMAP[10, :] = [0, 128, 128]
-# COLORMAP[11, :] = [128, 0, 128]
-# COLORMAP[12, :] = [128, 128, 128]
-# COLORMAP[13, :] = [128, 128, 128]
-
 COLORMAP = cv2.applyColorMap(np.arange(256, dtype=np.uint8), cv2.COLORMAP_JET)
 COLORMAP[0] = [0, 0, 0]
 
@@ -53,4 +39,20 @@ CLOUDINARY_CONFIG = cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
     api_key=os.getenv('CLOUDINARY_API_KEY'),
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
+)   
+
+class PredictionConfig(Config):
+    # define the name of the configuration
+    NAME = "organ_pred_cfg"
+    # number of classes (background + Blue Marbles + Non Blue marbles)
+    NUM_CLASSES = 1 + 3
+    # Set batch size to 1 since we'll be running inference on
+            # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
+    GPU_COUNT = 1
+    IMAGES_PER_GPU = 1
+    USE_MINI_MASK = False
+
+mrcnn_weight = "/Net/mask_rcnn_organ_cfg_0025.h5"
+MRCNN_WEIGHT_ABSPATH = os.path.abspath(ROOT_DIR + mrcnn_weight)
+cfg = PredictionConfig()
+NETWORK_MRCNN = modellib.MaskRCNN(mode='inference', model_dir=MRCNN_WEIGHT_ABSPATH, config=cfg)

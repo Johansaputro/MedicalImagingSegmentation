@@ -1,4 +1,4 @@
-FROM python:3.9-slim-buster
+FROM python:3.7-slim-buster
 
 WORKDIR /app
 
@@ -15,6 +15,7 @@ COPY .env .env
 
 # Copy the PyTorch model weight file and directories
 COPY Net/ ./Net/
+COPY mrcnn/ ./mrcnn/
 COPY PredictResult/ ./PredictResult/
 COPY ReceivedFile/ ./ReceivedFile/
 COPY CloudinaryFile/ ./CloudinaryFile/
