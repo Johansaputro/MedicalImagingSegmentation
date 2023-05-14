@@ -14,6 +14,9 @@ node_modules
 # properties
 .env
 
+# model
+*.h5
+
 # misc
 .DS_Store
 .env.local
