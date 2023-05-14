@@ -20,7 +20,7 @@ COPY ReceivedFile/ ./ReceivedFile/
 COPY CloudinaryFile/ ./CloudinaryFile/
 
 # Copy test folder
-COPY tests/ ./tests/
+# COPY tests/ ./tests/
 # RUN coverage run -m unittest discover tests
 
 CMD flask run -h 0.0.0.0 -p 5000
