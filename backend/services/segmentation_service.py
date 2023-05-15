@@ -1,4 +1,5 @@
 import os
+import random
 
 import torch
 import torch.nn.functional as F
@@ -9,11 +10,14 @@ import scipy.ndimage as ndimage
 import nibabel as nib
 import cv2
 import cloudinary.uploader
+import mrcnn.model as modellib
 
 import logging
 
-from config import NETWORK, NETWORK_MRCNN, RESULT_DIR, CDN_DIR, ALPHA, COLORMAP
+from config import NETWORK, RESULT_DIR, CDN_DIR, ALPHA, COLORMAP, ROOT_DIR, CFG
 from time import time
+import colorsys
+from skimage.measure import find_contours
 
 class SegmentationService:
     def __init__(self):
@@ -183,6 +187,121 @@ class SegmentationService:
             raise e
         
     def predict_mrcnn(self, filepath, filename):
-        return
+        mrcnn_weight = "/Net/logs/organ_cfg20230513T2033/mask_rcnn_organ_cfg_0025.h5"
+        MRCNN_WEIGHT_ABSPATH = os.path.abspath(ROOT_DIR + mrcnn_weight)
+        MODEL_ABSPATH = os.path.abspath(os.path.join(ROOT_DIR, "/Net/logs"))
 
+        try: 
+            self.logger.info("predict_mrcnn. Start predicting using mrcnn in {}".format(filepath))
+
+            original_image = cv2.imread(filepath, cv2.IMREAD_COLOR)
+
+            NETWORK_MRCNN = modellib.MaskRCNN(mode='inference', model_dir=MODEL_ABSPATH, config=CFG)
+            NETWORK_MRCNN.load_weights(MRCNN_WEIGHT_ABSPATH, by_name=True)
+            results = NETWORK_MRCNN.detect([original_image], verbose=1)
+
+            classes_list = ['BG', 'Ginjal', 'Limpa', 'Hati']
+            r = results[0]
+
+            save_result_dir = os.path.abspath(os.path.join(CDN_DIR, "result.png"))
+            self.save_instances(original_image, r['rois'], r['masks'], r['class_ids'], 
+                                classes_list, save_result_dir, r['scores'])
+            
+            self.logger.info("roi {}, class_id {}".format(r['rois'], r['class_ids']))
+            
+            try: 
+                self.logger.info("upload files to CDN")
+                upload_path = os.path.abspath(os.path.join(CDN_DIR, save_result_dir))
+                # self.logger.info(upload_path)
+                response = cloudinary.uploader.upload(upload_path)
+                url = response['secure_url']
+                os.remove(save_result_dir)
+                os.remove(filepath)
+                return url
+            except Exception as e:
+                self.logger.error("Error during handling of png: {}".format(e))
+        
+        except Exception as e:
+            self.logger.error("Error during prediction process")
+            raise e
+        
+    def random_colors(self, N, bright=True):
+        """
+        Generate random colors.
+        To get visually distinct colors, generate them in HSV space then
+        convert to RGB.
+        """
+        brightness = 1.0 if bright else 0.7
+        hsv = [(i / N, 1, brightness) for i in range(N)]
+        colors = list(map(lambda c: colorsys.hsv_to_rgb(*c), hsv))
+        random.shuffle(colors)
+        return colors
     
+    def apply_mask(self, image, mask, color, alpha=0.5):
+        """Apply the given mask to the image.
+        """
+        for c in range(3):
+            image[:, :, c] = np.where(mask == 1,
+                                    image[:, :, c] *
+                                    (1 - alpha) + alpha * color[c] * 255,
+                                    image[:, :, c])
+        return image
+
+    def save_instances(self, image, boxes, masks, class_ids, class_names, save_dir,
+                      scores=None,
+                      show_mask=True, show_bbox=True,
+                      colors=None, captions=None):
+        # Number of instances
+        N = boxes.shape[0]
+        if not N:
+            print("\n*** No instances to display *** \n")
+        else:
+            assert boxes.shape[0] == masks.shape[-1] == class_ids.shape[0]
+
+        # Generate random colors
+        colors = colors or self.random_colors(N)
+
+        # masked_image = image.astype(np.uint32).copy()
+        masked_image = image.copy()
+        for i in range(N):
+            color = colors[i]
+
+            # Bounding box
+            if not np.any(boxes[i]):
+                # Skip this instance. Has no bbox. Likely lost in image cropping.
+                continue
+            y1, x1, y2, x2 = boxes[i]
+            if show_bbox:
+                # masked_image = masked_image.astype(np.uint8).copy()
+                cv2.rectangle(masked_image, (x1, y1), (x2, y2), color, thickness=2)
+
+            # Label
+            if not captions:
+                class_id = class_ids[i]
+                score = scores[i] if scores is not None else None
+                label = class_names[class_id]
+                caption = "{} {:.3f}".format(label, score) if score else label
+            else:
+                caption = captions[i]
+
+            # Mask
+            mask = masks[:, :, i]
+            if show_mask:
+                # masked_image = masked_image.astype(np.uint32)
+                masked_image = self.apply_mask(masked_image, mask, color)
+
+            # Mask Polygon
+            # Pad to ensure proper polygons for masks that touch image edges.
+            padded_mask = np.zeros(
+                (mask.shape[0] + 2, mask.shape[1] + 2), dtype=np.uint8)
+            padded_mask[1:-1, 1:-1] = mask
+            contours = find_contours(padded_mask, 0.5)
+            for verts in contours:
+                # Subtract the padding and flip (y, x) to (x, y)
+                verts = np.fliplr(verts) - 1
+                pts = verts.reshape((-1, 1, 2)).astype(np.int32)
+                # masked_image = masked_image.astype(np.uint8)
+                cv2.polylines(masked_image, [pts], True, color, thickness=2)
+                
+            cv2.putText(masked_image, caption, (x1, y1 + 8), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.imwrite(save_dir, masked_image)

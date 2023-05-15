@@ -59,7 +59,8 @@ class SegmentationController:
         # Save the file to disk
         try:
             filename = secure_filename(file.filename)
-            if not filename.endswith('.jpg') or not filename.endswith('.jpeg') or not filename.endswith('.png'):
+            if not filename.endswith('.jpg') and not filename.endswith('.jpeg') and not filename.endswith('.png'):
+                self.app.logger.info(filename)
                 self.app.logger.error('Not a jpg/jpeg/png file')
                 return jsonify({'error': 'Only jpg/jpeg/png files are supported.'}), 400
 
@@ -68,10 +69,9 @@ class SegmentationController:
             file.save(self.save_path)
             self.app.logger.info('File Received')
 
-            self.result_dir, url_list = self.segmentation_service.predict_mrcnn(self.save_path, filename)
-
-            response = make_response(send_file(self.result_dir, mimetype='application/nifti', as_attachment=True, download_name="result.nii.gz"))
-            response.headers['url_list'] = url_list
+            url = self.segmentation_service.predict_mrcnn(self.save_path, filename)
+            response_dict = {'sizes': 'IN DEVELOPMENT', 'data': url}
+            response = jsonify(response_dict)
 
             return response
 

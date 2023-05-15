@@ -4,7 +4,7 @@ import torch
 import cloudinary
 import numpy as np
 import cv2
-import mrcnn.model as modellib
+import tensorflow as tf
 from Net import model
 from mrcnn.config_alt import Config
 from dotenv import load_dotenv
@@ -52,7 +52,12 @@ class PredictionConfig(Config):
     IMAGES_PER_GPU = 1
     USE_MINI_MASK = False
 
-mrcnn_weight = "/Net/mask_rcnn_organ_cfg_0025.h5"
-MRCNN_WEIGHT_ABSPATH = os.path.abspath(ROOT_DIR + mrcnn_weight)
-cfg = PredictionConfig()
-NETWORK_MRCNN = modellib.MaskRCNN(mode='inference', model_dir=MRCNN_WEIGHT_ABSPATH, config=cfg)
+
+CFG = PredictionConfig()
+# GRAPH = tf.Graph()
+# SESSION = tf.Session(graph=graph)
+# mrcnn_weight = "/Net/logs/organ_cfg20230513T2033/mask_rcnn_organ_cfg_0025.h5"
+# MRCNN_WEIGHT_ABSPATH = os.path.abspath(ROOT_DIR + mrcnn_weight)
+# MODEL_ABSPATH = os.path.abspath(os.path.join(ROOT_DIR, "/Net/logs"))
+# MODEL_ABSPATH = os.path.abspath('D:\\logs')
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'

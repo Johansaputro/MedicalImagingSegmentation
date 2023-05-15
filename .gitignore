@@ -36,6 +36,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+logs/
 bin/
 build/
 develop-eggs/
