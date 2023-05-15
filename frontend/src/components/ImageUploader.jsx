@@ -26,7 +26,7 @@ const ImageUploader = () => {
         return response.json()
       })
       .then(data => {
-        console.log(data.data)
+        console.log(data)
       })
       .catch(error => {
         console.error('There was a problem with the file processing:', error);

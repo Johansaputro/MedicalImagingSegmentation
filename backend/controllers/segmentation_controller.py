@@ -69,8 +69,8 @@ class SegmentationController:
             file.save(self.save_path)
             self.app.logger.info('File Received')
 
-            url = self.segmentation_service.predict_mrcnn(self.save_path, filename)
-            response_dict = {'sizes': 'IN DEVELOPMENT', 'data': url}
+            url, sizes = self.segmentation_service.predict_mrcnn(self.save_path, filename)
+            response_dict = {'sizes': sizes, 'data': url}
             response = jsonify(response_dict)
 
             return response

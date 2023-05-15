@@ -208,6 +208,19 @@ class SegmentationService:
                                 classes_list, save_result_dir, r['scores'])
             
             self.logger.info("roi {}, class_id {}".format(r['rois'], r['class_ids']))
+
+            size_array = []
+            for index in range(len(r['class_ids'])):
+                
+                if r['class_ids'][index] == 1:
+                    key = "Ginjal"
+                elif r['class_ids'][index] == 2:
+                    key = "Limpa"
+                elif r['class_ids'][index] == 3:
+                    key = "Hati"
+                size_array.append((key, 
+                                   int(r['rois'][index][3] - r['rois'][index][1]), 
+                                   int(r['rois'][index][2] - r['rois'][index][0])))
             
             try: 
                 self.logger.info("upload files to CDN")
@@ -217,9 +230,11 @@ class SegmentationService:
                 url = response['secure_url']
                 os.remove(save_result_dir)
                 os.remove(filepath)
-                return url
             except Exception as e:
                 self.logger.error("Error during handling of png: {}".format(e))
+
+            self.logger.info(size_array)
+            return url, size_array
         
         except Exception as e:
             self.logger.error("Error during prediction process")
