@@ -11,7 +11,7 @@ const ImageUploader = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('http://localhost:5000/segmentation/predict/mrcnn', {
+    fetch('http://127.0.0.1:5000/segmentation/predict/mrcnn', {
       headers: {
         'Access-Control-Allow-Origin': '*'
       },

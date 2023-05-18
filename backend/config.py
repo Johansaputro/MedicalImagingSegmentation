@@ -4,7 +4,6 @@ import torch
 import cloudinary
 import numpy as np
 import cv2
-import tensorflow as tf
 from Net import model
 from mrcnn.config_alt import Config
 from dotenv import load_dotenv
@@ -54,10 +53,4 @@ class PredictionConfig(Config):
 
 
 CFG = PredictionConfig()
-# GRAPH = tf.Graph()
-# SESSION = tf.Session(graph=graph)
-# mrcnn_weight = "/Net/logs/organ_cfg20230513T2033/mask_rcnn_organ_cfg_0025.h5"
-# MRCNN_WEIGHT_ABSPATH = os.path.abspath(ROOT_DIR + mrcnn_weight)
-# MODEL_ABSPATH = os.path.abspath(os.path.join(ROOT_DIR, "/Net/logs"))
-# MODEL_ABSPATH = os.path.abspath('D:\\logs')
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'

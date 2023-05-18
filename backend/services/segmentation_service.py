@@ -203,14 +203,16 @@ class SegmentationService:
             classes_list = ['BG', 'Ginjal', 'Limpa', 'Hati']
             r = results[0]
 
+            rois, masks, classes, confidences = self.filter_anomaly(r['rois'], r['masks'], r['class_ids'], r['scores'])
+
             save_result_dir = os.path.abspath(os.path.join(CDN_DIR, "result.png"))
-            self.save_instances(original_image, r['rois'], r['masks'], r['class_ids'], 
-                                classes_list, save_result_dir, r['scores'])
+            self.save_instances(original_image, rois, masks, classes, 
+                                classes_list, save_result_dir, confidences)
             
-            self.logger.info("roi {}, class_id {}".format(r['rois'], r['class_ids']))
+            self.logger.info("roi {}, class_id {}".format(rois, classes))
 
             size_array = []
-            for index in range(len(r['class_ids'])):
+            for index in range(len(classes)):
                 
                 if r['class_ids'][index] == 1:
                     key = "Ginjal"
@@ -320,3 +322,25 @@ class SegmentationService:
                 
             cv2.putText(masked_image, caption, (x1, y1 + 8), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1, cv2.LINE_AA)
         cv2.imwrite(save_dir, masked_image)
+
+    def filter_anomaly(self, rois, masks, classes, confidence):
+        indices_one = np.where(classes == 1)[0]
+        indices_two = np.where(classes == 2)[0]
+        indices_three = np.where(classes == 3)[0]
+        
+        sorted_indices_one = indices_one[np.argsort(confidence[indices_one])]
+        sorted_indices_two = indices_two[np.argsort(confidence[indices_two])]
+        sorted_indices_three = indices_three[np.argsort(confidence[indices_three])]
+        
+        top_two_ginjal = sorted_indices_one[-2:] if len(sorted_indices_one > 0) else []
+        top_limpa = sorted_indices_two[-1:] if len(sorted_indices_two > 0) else []
+        top_hati = sorted_indices_three[-1:] if len(sorted_indices_three > 0) else []
+        
+        combined_indices = list(top_two_ginjal) + list(top_limpa) + list(top_hati)
+        
+        filtered_classes = classes[combined_indices]
+        filtered_confidences = confidence[combined_indices]
+        filtered_masks = masks[:,:,combined_indices]
+        filtered_rois = rois[combined_indices]
+        
+        return filtered_rois, filtered_masks, filtered_classes, filtered_confidences
